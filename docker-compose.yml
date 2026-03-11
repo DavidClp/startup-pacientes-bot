@@ -17,21 +17,6 @@ services:
       DOCTOR_PHONE: ${DOCTOR_PHONE}
     ports:
       - "${PORT}:${PORT}"
-  startup-bot-pacientes-bd:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
-      POSTGRES_DB: ${POSTGRES_DB:-startup_bot_pacientes}
-    ports:
-      - "${POSTGRES_PORT:-5436}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
-
 
 networks:
   proxy:
