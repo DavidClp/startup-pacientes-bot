@@ -155,6 +155,10 @@ async function handlePatientMessage(
   const state = getPatientState(phone);
   const user = await PlanService.getUserByPhone(phone);
 
+  console.log('user', user);
+  console.log('text', text);
+  console.log('phone', phone);
+
   if (!user) {
     if (state?.state === 'REGISTER_COMPLETE_PROFILE') {
       const parsedData = PlanService.parsePatientData(text);
@@ -187,7 +191,13 @@ async function handlePatientMessage(
     return;
   }
 
-  if (!user.patientProfile) {
+  // Continua o cadastro mesmo se o profile já existir (ex.: após salvar idade)
+  if (
+    state?.state === 'REGISTER_NAME' ||
+    state?.state === 'REGISTER_AGE' ||
+    state?.state === 'REGISTER_CONDITION' ||
+    !user.patientProfile
+  ) {
     await continueRegistration(phone, text, state);
     return;
   }

@@ -24,6 +24,7 @@ export async function sendText(phone: string, message: string): Promise<void> {
   };
 
   try {
+    
     const res = await fetch(url, {
       method: 'POST',
       headers: {
