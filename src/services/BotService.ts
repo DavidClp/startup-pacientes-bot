@@ -194,8 +194,6 @@ async function handlePatientMessage(
   // Continua o cadastro mesmo se o profile já existir (ex.: após salvar idade)
   if (
     state?.state === 'REGISTER_NAME' ||
-    state?.state === 'REGISTER_AGE' ||
-    state?.state === 'REGISTER_CONDITION' ||
     !user.patientProfile
   ) {
     await continueRegistration(phone, text, state);
