@@ -26,15 +26,23 @@ model User {
   createdAt      DateTime        @default(now())
   patientProfile PatientProfile?
   plans          Plan[]
+  occurrences    Occurrence[]
+  familyMembers  FamilyMember[]
 }
 
 model PatientProfile {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  age       Int?
-  condition String?
-  createdAt DateTime @default(now())
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  age               Int?
+  birthDate         DateTime?
+  weight            String?
+  gender            String?
+  familyHistory     String?
+  medications       String?
+  caregiverProfession String?
+  condition         String?
+  createdAt         DateTime  @default(now())
 }
 
 model Plan {
@@ -47,13 +55,15 @@ model Plan {
 }
 
 model PlanTask {
-  id        String    @id @default(cuid())
-  planId    String
-  plan      Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
-  title     String
-  time      String
-  createdAt DateTime  @default(now())
-  logs      TaskLog[]
+  id            String    @id @default(cuid())
+  planId        String
+  plan          Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  title         String
+  time          String
+  intervalHours Int?
+  lastTriggeredAt DateTime?
+  createdAt     DateTime  @default(now())
+  logs          TaskLog[]
 }
 
 model TaskLog {
@@ -65,4 +75,23 @@ model TaskLog {
   createdAt DateTime     @default(now())
 
   @@unique([taskId, date])
+}
+
+model Occurrence {
+  id          String   @id @default(cuid())
+  patientId   String
+  patient     User     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  description String
+  createdAt   DateTime @default(now())
+}
+
+model FamilyMember {
+  id        String   @id @default(cuid())
+  patientId String
+  patient   User     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  name      String
+  phone     String
+  createdAt DateTime @default(now())
+
+  @@unique([patientId, phone])
 }

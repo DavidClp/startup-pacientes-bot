@@ -5,6 +5,7 @@ import { logger } from '../utils/logger';
 
 export async function zapiWebhook(req: Request, res: Response): Promise<void> {
   res.status(200).send();
+  
   const parsed = parseWebhook(req.body);
   if (!parsed) {
     logger.warn('Webhook body invalid or missing phone', req.body);
@@ -14,8 +15,23 @@ export async function zapiWebhook(req: Request, res: Response): Promise<void> {
     logger.info('Ignoring message fromMe', parsed.phone);
     return;
   }
+  if (parsed.text.includes('@g.us')) {
+    logger.info('Ignoring message from group', parsed.phone);
+    return;
+  }
+  if (parsed.isGroup) {
+    logger.info('Ignoring message from group', parsed.phone);
+    return;
+  }
+  if (parsed.phone.includes('group')) {
+    logger.info('Ignoring message from group', parsed.phone);
+    return;
+  }
+
   try {
-    await handleIncomingMessage(parsed.phone, parsed.text);
+    // Se for resposta de botão/lista, usar selectedId; caso contrário, usar text
+    const messageText = parsed.selectedId || parsed.text;
+    await handleIncomingMessage(parsed.phone, messageText, parsed);
   } catch (e) {
     logger.error('handleIncomingMessage error', e);
   }
