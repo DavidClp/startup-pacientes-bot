@@ -1,0 +1,48 @@
+name: Deploy Startup Bot Pacientes
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_KEY }}
+
+      - name: Deploy to VPS
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
+            set -e
+
+            if [ ! -d "/home/david/startup-bot-pacientes/.git" ]; then
+              rm -rf /home/david/startup-bot-pacientes
+              git clone https://github.com/${{ github.repository }} /home/david/startup-bot-pacientes
+            else
+              cd /home/david/startup-bot-pacientes
+              git fetch origin main
+              git reset --hard origin/main
+            fi
+
+            cd /home/david/startup-bot-pacientes
+
+            echo "NODE_ENV=production" > .env
+            echo "PORT=${{ secrets.PORT }}" >> .env
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+            echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+            echo "ZAPI_BASE_URL=${{ secrets.ZAPI_BASE_URL }}" >> .env
+            echo "ZAPI_INSTANCE_ID=${{ secrets.ZAPI_INSTANCE_ID }}" >> .env
+            echo "ZAPI_TOKEN=${{ secrets.ZAPI_TOKEN }}" >> .env
+            echo "ZAPI_CLIENT_TOKEN=${{ secrets.ZAPI_CLIENT_TOKEN }}" >> .env
+            echo "DOCTOR_PHONE=${{ secrets.DOCTOR_PHONE }}" >> .env
+
+            docker compose up -d --build
+          EOF

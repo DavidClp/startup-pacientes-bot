@@ -1,4 +1,22 @@
 services:
+  startup-bot-pacientes:
+    build: .
+    container_name: startup-bot-pacientes
+    restart: always
+    networks:
+      - proxy
+    environment:
+      NODE_ENV: production
+      PORT: ${PORT}
+      DATABASE_URL: ${DATABASE_URL}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ZAPI_BASE_URL: ${ZAPI_BASE_URL}
+      ZAPI_INSTANCE_ID: ${ZAPI_INSTANCE_ID}
+      ZAPI_TOKEN: ${ZAPI_TOKEN}
+      ZAPI_CLIENT_TOKEN: ${ZAPI_CLIENT_TOKEN}
+      DOCTOR_PHONE: ${DOCTOR_PHONE}
+    ports:
+      - "${PORT}:${PORT}"
   db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -13,3 +31,8 @@ services:
 
 volumes:
   postgres_data:
+
+
+networks:
+  proxy:
+    external: true
