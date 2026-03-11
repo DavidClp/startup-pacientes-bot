@@ -97,6 +97,10 @@ async function handlePatientMessage(phone: string, text: string): Promise<void> 
   const state = getPatientState(phone);
   const user = await PlanService.getUserByPhone(phone);
 
+  console.log('user', user);
+  console.log('text', text);
+  console.log('phone', phone);
+
   if (!user) {
     if (state?.state === 'REGISTER_NAME') {
       await PlanService.ensurePatientUser(phone, text.trim() || null);
@@ -109,6 +113,7 @@ async function handlePatientMessage(phone: string, text: string): Promise<void> 
   }
 
   if (!user.patientProfile) {
+    console.log('continueRegistration');
     await continueRegistration(phone, text, state);
     return;
   }
