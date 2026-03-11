@@ -9,6 +9,8 @@ import {
   REGISTER_DONE,
   PATIENT_MENU,
   ADMIN_MENU,
+  BACK_TO_MENU_HINT,
+  ADMIN_BACK_HINT,
   ASK_ACTION_TASK,
   ACTION_CHOICES,
   ACTION_RECORDED,
@@ -64,6 +66,11 @@ export function setReminderState(phone: string, taskId: string): void {
   });
 }
 
+function isBackToMenu(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return t === '0' || t === 'voltar ao menu';
+}
+
 function parsePlanTasksInput(text: string): { title: string; time: string }[] {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const tasks: { title: string; time: string }[] = [];
@@ -90,10 +97,6 @@ async function handlePatientMessage(phone: string, text: string): Promise<void> 
   const state = getPatientState(phone);
   const user = await PlanService.getUserByPhone(phone);
 
-  console.log('user', user);
-  console.log('state', state);
-  console.log('text', text);
-
   if (!user) {
     if (state?.state === 'REGISTER_NAME') {
       await PlanService.createUser(phone, text.trim() || null, 'PATIENT');
@@ -111,6 +114,12 @@ async function handlePatientMessage(phone: string, text: string): Promise<void> 
   }
 
   if (state?.state === 'AWAIT_ACTION_CHOICE' && state.data?.taskId) {
+    if (isBackToMenu(text)) {
+      clearPatientState(phone);
+      setPatientState(phone, { state: 'MENU' });
+      await sendText(phone, PATIENT_MENU);
+      return;
+    }
     const choice = text.trim();
     if (choice === '1' || choice === '2' || choice === '3') {
       const status: TaskLogStatus = choice === '1' ? 'DONE' : choice === '2' ? 'NOT_DONE' : 'REFUSED';
@@ -123,6 +132,12 @@ async function handlePatientMessage(phone: string, text: string): Promise<void> 
   }
 
   if (state?.state === 'AWAIT_QUESTION') {
+    if (isBackToMenu(text)) {
+      clearPatientState(phone);
+      setPatientState(phone, { state: 'MENU' });
+      await sendText(phone, PATIENT_MENU);
+      return;
+    }
     clearPatientState(phone);
     const answer = await answerHealthQuestion(text);
     await sendText(phone, answer);
@@ -132,6 +147,12 @@ async function handlePatientMessage(phone: string, text: string): Promise<void> 
   }
 
   if (state?.state === 'AWAIT_CONTACT_MESSAGE') {
+    if (isBackToMenu(text)) {
+      clearPatientState(phone);
+      setPatientState(phone, { state: 'MENU' });
+      await sendText(phone, PATIENT_MENU);
+      return;
+    }
     clearPatientState(phone);
     const msg = `Paciente: ${user.name ?? 'N/A'}\nTel: ${phone}\nMensagem: ${text}`;
     await sendText(env.DOCTOR_PHONE, msg);
@@ -162,12 +183,18 @@ async function handlePatientMessage(phone: string, text: string): Promise<void> 
       return;
     }
     const lines = plan.tasks.map((t, i) => `${i + 1}. ${t.time} - ${t.title}`);
-    await sendText(phone, `${ASK_ACTION_TASK}\n\n${lines.join('\n')}`);
+    await sendText(phone, `${ASK_ACTION_TASK}\n\n${lines.join('\n')}${BACK_TO_MENU_HINT}`);
     setPatientState(phone, { state: 'AWAIT_ACTION_TASK_ID', data: {} });
     return;
   }
 
   if (state?.state === 'AWAIT_ACTION_TASK_ID') {
+    if (isBackToMenu(text)) {
+      clearPatientState(phone);
+      setPatientState(phone, { state: 'MENU' });
+      await sendText(phone, PATIENT_MENU);
+      return;
+    }
     const plan = await PlanService.getTodayPlan(user.id);
     if (!plan) {
       setPatientState(phone, { state: 'MENU' });
@@ -181,19 +208,19 @@ async function handlePatientMessage(phone: string, text: string): Promise<void> 
     }
     const task = plan.tasks[num - 1];
     setPatientState(phone, { state: 'AWAIT_ACTION_CHOICE', data: { taskId: task.id } });
-    await sendText(phone, `${task.time} - ${task.title}\n\n${ACTION_CHOICES}`);
+    await sendText(phone, `${task.time} - ${task.title}\n\n${ACTION_CHOICES}${BACK_TO_MENU_HINT}`);
     return;
   }
 
   if (menuChoice === '3') {
     setPatientState(phone, { state: 'AWAIT_QUESTION' });
-    await sendText(phone, ASK_QUESTION);
+    await sendText(phone, ASK_QUESTION + BACK_TO_MENU_HINT);
     return;
   }
 
   if (menuChoice === '4') {
     setPatientState(phone, { state: 'AWAIT_CONTACT_MESSAGE' });
-    await sendText(phone, ASK_CONTACT_MESSAGE);
+    await sendText(phone, ASK_CONTACT_MESSAGE + BACK_TO_MENU_HINT);
     return;
   }
 
@@ -269,17 +296,17 @@ async function handleAdminMessage(phone: string, text: string): Promise<void> {
     }
     if (choice === '2') {
       setAdminState(phone, { state: 'AWAIT_PATIENT_PHONE_STATUS' });
-      await sendText(phone, ADMIN_ASK_PHONE_STATUS);
+      await sendText(phone, ADMIN_ASK_PHONE_STATUS + ADMIN_BACK_HINT);
       return;
     }
     if (choice === '3') {
       setAdminState(phone, { state: 'AWAIT_PATIENT_PHONE_PLAN' });
-      await sendText(phone, ADMIN_ASK_PHONE_PLAN);
+      await sendText(phone, ADMIN_ASK_PHONE_PLAN + ADMIN_BACK_HINT);
       return;
     }
     if (choice === '4') {
       setAdminState(phone, { state: 'AWAIT_EDIT_PLAN_ID' });
-      await sendText(phone, ADMIN_ASK_PLAN_ID_EDIT);
+      await sendText(phone, ADMIN_ASK_PLAN_ID_EDIT + ADMIN_BACK_HINT);
       return;
     }
     await sendText(phone, ADMIN_MENU);
@@ -287,6 +314,11 @@ async function handleAdminMessage(phone: string, text: string): Promise<void> {
   }
 
   if (state.state === 'AWAIT_PATIENT_PHONE_STATUS') {
+    if (isBackToMenu(text)) {
+      setAdminState(phone, { state: 'MENU' });
+      await sendText(phone, ADMIN_MENU);
+      return;
+    }
     const patient = await PlanService.getUserByPhone(text.trim());
     if (!patient || patient.role !== 'PATIENT') {
       await sendText(phone, 'Paciente não encontrado. Digite o telefone (apenas números):');
@@ -313,17 +345,27 @@ async function handleAdminMessage(phone: string, text: string): Promise<void> {
   }
 
   if (state.state === 'AWAIT_PATIENT_PHONE_PLAN') {
+    if (isBackToMenu(text)) {
+      setAdminState(phone, { state: 'MENU' });
+      await sendText(phone, ADMIN_MENU);
+      return;
+    }
     const patient = await PlanService.getUserByPhone(text.trim());
     if (!patient || patient.role !== 'PATIENT') {
       await sendText(phone, 'Paciente não encontrado. Digite o telefone (apenas números):');
       return;
     }
     setAdminState(phone, { state: 'AWAIT_PLAN_TASKS', data: { patientPhone: patient.phone } });
-    await sendText(phone, ADMIN_ASK_TASKS);
+    await sendText(phone, ADMIN_ASK_TASKS + ADMIN_BACK_HINT);
     return;
   }
 
   if (state.state === 'AWAIT_PLAN_TASKS') {
+    if (isBackToMenu(text)) {
+      setAdminState(phone, { state: 'MENU' });
+      await sendText(phone, ADMIN_MENU);
+      return;
+    }
     const patientPhone = state.data?.patientPhone;
     if (!patientPhone) {
       setAdminState(phone, { state: 'MENU' });
@@ -349,6 +391,11 @@ async function handleAdminMessage(phone: string, text: string): Promise<void> {
   }
 
   if (state.state === 'AWAIT_EDIT_PLAN_ID') {
+    if (isBackToMenu(text)) {
+      setAdminState(phone, { state: 'MENU' });
+      await sendText(phone, ADMIN_MENU);
+      return;
+    }
     const input = text.trim();
     const byPhone = /^\d+$/.test(input);
     if (byPhone) {
@@ -362,7 +409,7 @@ async function handleAdminMessage(phone: string, text: string): Promise<void> {
       const plan = plans[0];
       const taskList = plan.tasks.map((t, i) => `${i + 1}. ${t.time} ${t.title}`).join('\n');
       setAdminState(phone, { state: 'AWAIT_EDIT_ACTION', data: { planId: plan.id } });
-      await sendText(phone, `Plano: ${plan.title}\n\n${taskList}\n\n${ADMIN_EDIT_INSTRUCTIONS}`);
+      await sendText(phone, `Plano: ${plan.title}\n\n${taskList}\n\n${ADMIN_EDIT_INSTRUCTIONS}${ADMIN_BACK_HINT}`);
       return;
     }
     const plan = await PlanService.getPlanById(input);
@@ -372,11 +419,16 @@ async function handleAdminMessage(phone: string, text: string): Promise<void> {
     }
     const taskList = plan.tasks.map((t, i) => `${i + 1}. ${t.time} ${t.title}`).join('\n');
     setAdminState(phone, { state: 'AWAIT_EDIT_ACTION', data: { planId: plan.id } });
-    await sendText(phone, `Plano: ${plan.title}\n\n${taskList}\n\n${ADMIN_EDIT_INSTRUCTIONS}`);
+    await sendText(phone, `Plano: ${plan.title}\n\n${taskList}\n\n${ADMIN_EDIT_INSTRUCTIONS}${ADMIN_BACK_HINT}`);
     return;
   }
 
   if (state.state === 'AWAIT_EDIT_ACTION') {
+    if (isBackToMenu(text)) {
+      setAdminState(phone, { state: 'MENU' });
+      await sendText(phone, ADMIN_MENU);
+      return;
+    }
     const planId = state.data?.planId;
     if (!planId) {
       setAdminState(phone, { state: 'MENU' });
@@ -393,7 +445,7 @@ async function handleAdminMessage(phone: string, text: string): Promise<void> {
           await PlanService.addPlanTasks(planId, [{ time: m[1], title: m[2] }]);
           const updated = await PlanService.getPlanById(planId);
           const taskList = updated!.tasks.map((t, i) => `${i + 1}. ${t.time} ${t.title}`).join('\n');
-          await sendText(phone, `Tarefa adicionada.\n\n${taskList}\n\n${ADMIN_EDIT_INSTRUCTIONS}`);
+          await sendText(phone, `Tarefa adicionada.\n\n${taskList}\n\n${ADMIN_EDIT_INSTRUCTIONS}${ADMIN_BACK_HINT}`);
         }
       } else {
         await sendText(phone, 'Use: + HH:mm Título');
@@ -412,7 +464,7 @@ async function handleAdminMessage(phone: string, text: string): Promise<void> {
       const updated = await PlanService.getPlanById(planId);
       if (updated && updated.tasks.length > 0) {
         const taskList = updated.tasks.map((t, i) => `${i + 1}. ${t.time} ${t.title}`).join('\n');
-        await sendText(phone, `Tarefa removida.\n\n${taskList}\n\n${ADMIN_EDIT_INSTRUCTIONS}`);
+        await sendText(phone, `Tarefa removida.\n\n${taskList}\n\n${ADMIN_EDIT_INSTRUCTIONS}${ADMIN_BACK_HINT}`);
       } else {
         setAdminState(phone, { state: 'MENU' });
         await sendText(phone, 'Plano sem tarefas. Edição encerrada.');

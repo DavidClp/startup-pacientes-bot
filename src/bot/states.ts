@@ -16,6 +16,8 @@ export const REGISTER_ASK_AGE = `Qual a sua idade?`;
 export const REGISTER_ASK_CONDITION = `Qual sua condição ou observação médica?`;
 export const REGISTER_DONE = `Cadastro finalizado. O médico irá criar seu plano.`;
 
+export const BACK_TO_MENU_HINT = `\n\n_Digite 0 ou "voltar ao menu" para cancelar._`;
+
 export const ASK_ACTION_TASK = `Digite o *número* da tarefa que deseja registrar (conforme lista do plano):`;
 export const ACTION_CHOICES = `1 - Fiz\n2 - Não fiz\n3 - Paciente recusou`;
 export const ACTION_RECORDED = `Registro salvo.`;
@@ -31,3 +33,4 @@ export const ADMIN_ASK_TASKS = `Envie as tarefas do plano, uma por linha, no for
 export const ADMIN_PLAN_CREATED = `Plano criado com sucesso.`;
 export const ADMIN_ASK_PLAN_ID_EDIT = `Digite o ID do plano a editar (ou telefone do paciente):`;
 export const ADMIN_EDIT_INSTRUCTIONS = `Envie:\n+ HH:mm Título (para adicionar)\n- número (para remover a tarefa pelo número da lista)`;
+export const ADMIN_BACK_HINT = `\n\n_Digite 0 ou "voltar ao menu" para cancelar._`;

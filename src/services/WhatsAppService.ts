@@ -10,8 +10,6 @@ export async function sendText(phone: string, message: string): Promise<void> {
   const url = sendTextUrl();
   const body = { phone: normalized, message };
 
-  console.log('normalized', normalized);
-  console.log('sendText', url, body);
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -22,7 +20,6 @@ export async function sendText(phone: string, message: string): Promise<void> {
       body: JSON.stringify(body),
     });
 
-    console.log('res', res);
 
     if (!res.ok) {
       const text = await res.text();
@@ -31,7 +28,6 @@ export async function sendText(phone: string, message: string): Promise<void> {
     }
 
     const data = (await res.json()) as { zaapId?: string; messageId?: string };
-    console.log('data', data);
     logger.info('Message sent', { phone: normalized, zaapId: data.zaapId });
   } catch (e) {
     logger.error('sendText error', e);
