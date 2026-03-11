@@ -99,7 +99,7 @@ async function handlePatientMessage(phone: string, text: string): Promise<void> 
 
   if (!user) {
     if (state?.state === 'REGISTER_NAME') {
-      await PlanService.createUser(phone, text.trim() || null, 'PATIENT');
+      await PlanService.ensurePatientUser(phone, text.trim() || null);
       setPatientState(phone, { state: 'REGISTER_AGE' });
       await sendText(phone, REGISTER_ASK_AGE);
       return;
@@ -243,7 +243,7 @@ async function continueRegistration(
   const current = (state?.state ?? 'REGISTER_NAME') as PatientState;
 
   if (current === 'REGISTER_NAME') {
-    await PlanService.createUser(phone, text.trim() || null, 'PATIENT');
+    await PlanService.ensurePatientUser(phone, text.trim() || null);
     setPatientState(phone, { state: 'REGISTER_AGE' });
     await sendText(phone, REGISTER_ASK_AGE);
     return;

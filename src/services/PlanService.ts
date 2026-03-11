@@ -17,6 +17,26 @@ export async function createUser(phone: string, name: string | null, role: Role)
   });
 }
 
+/** Cria ou atualiza paciente por telefone (evita P2002 quando estado do bot se perde) */
+export async function ensurePatientUser(phone: string, name: string | null) {
+  const normalized = normalizePhone(phone);
+  const existing = await prisma.user.findUnique({
+    where: { phone: normalized },
+    include: { patientProfile: true },
+  });
+  if (existing) {
+    return prisma.user.update({
+      where: { id: existing.id },
+      data: { name: name ?? existing.name },
+      include: { patientProfile: true },
+    });
+  }
+  return prisma.user.create({
+    data: { phone: normalized, name, role: 'PATIENT' },
+    include: { patientProfile: true },
+  });
+}
+
 export async function getOrCreateAdmin(doctorPhone: string) {
   const normalized = normalizePhone(doctorPhone);
   let user = await prisma.user.findUnique({ where: { phone: normalized } });
