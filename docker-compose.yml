@@ -17,7 +17,7 @@ services:
       DOCTOR_PHONE: ${DOCTOR_PHONE}
     ports:
       - "${PORT}:${PORT}"
-  db:
+  startup_bot_pacientes:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
