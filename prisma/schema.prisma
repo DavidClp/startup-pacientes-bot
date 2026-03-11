@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PATIENT
+  ADMIN
+}
+
+enum TaskLogStatus {
+  DONE
+  NOT_DONE
+  REFUSED
+}
+
+model User {
+  id             String          @id @default(cuid())
+  phone          String          @unique
+  name           String?
+  role           Role            @default(PATIENT)
+  createdAt      DateTime        @default(now())
+  patientProfile PatientProfile?
+  plans          Plan[]
+}
+
+model PatientProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  age       Int?
+  condition String?
+  createdAt DateTime @default(now())
+}
+
+model Plan {
+  id        String     @id @default(cuid())
+  patientId String
+  patient   User       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  title     String
+  createdAt DateTime   @default(now())
+  tasks     PlanTask[]
+}
+
+model PlanTask {
+  id        String    @id @default(cuid())
+  planId    String
+  plan      Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  title     String
+  time      String
+  createdAt DateTime  @default(now())
+  logs      TaskLog[]
+}
+
+model TaskLog {
+  id        String       @id @default(cuid())
+  taskId    String
+  task      PlanTask     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  date      DateTime     @db.Date
+  status    TaskLogStatus
+  createdAt DateTime     @default(now())
+
+  @@unique([taskId, date])
+}

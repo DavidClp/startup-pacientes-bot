@@ -1,0 +1,32 @@
+{
+  "name": "startup-bot-pacientes",
+  "version": "1.0.0",
+  "description": "MVP Sistema de Lembretes Médicos via WhatsApp",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push && prisma generate",
+    "db:pull": "prisma db pull && prisma generate",
+    "db:studio": "prisma studio",
+    "tunnel": "cloudflared tunnel --url http://localhost:4050"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "node-cron": "^3.0.3",
+    "openai": "^4.73.0",
+    "prisma": "^5.22.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.9.0",
+    "@types/node-cron": "^3.0.11",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.6.3"
+  }
+}
