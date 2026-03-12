@@ -73,8 +73,6 @@ model TaskLog {
   date      DateTime     @db.Date
   status    TaskLogStatus
   createdAt DateTime     @default(now())
-
-  @@unique([taskId, date])
 }
 
 model Occurrence {
