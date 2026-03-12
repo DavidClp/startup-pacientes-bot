@@ -585,10 +585,14 @@ export async function getPatientDetailedStats(
     };
   });
 
-  // Calcular adesão geral
-  const totalLogs = logs.length;
-  const totalDone = logs.filter((l) => l.status === 'DONE').length;
-  const overallAdherence = totalLogs > 0 ? Math.round((totalDone / totalLogs) * 100) : 0;
+  // Calcular adesão geral como média das adesões das tarefas que tiveram registros
+  const tasksWithRecords = tasksWithStats.filter((t) => t.stats.total > 0);
+  let overallAdherence = 0;
+  
+  if (tasksWithRecords.length > 0) {
+    const sumAdherence = tasksWithRecords.reduce((sum, t) => sum + t.stats.adherence, 0);
+    overallAdherence = Math.round(sumAdherence / tasksWithRecords.length);
+  }
 
   return {
     plan,

@@ -2580,7 +2580,7 @@ async function sendPatientMenu(phone: string): Promise<void> {
   await sendListMessage(
     phone,
     'Menu',
-    'Menu do Paciente\nSelecione uma opção:',
+    '📊 Menu do Paciente 🩺\n\nSelecione uma opção:',
     'Ver menu',
     sections
   );
