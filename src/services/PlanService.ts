@@ -4,19 +4,19 @@ import { normalizePhone } from '../config/env';
 import type { ListSection } from './WhatsAppService';
 
 export const PREDEFINED_TASKS = [
-  'Sinais Vitais Básicos',
+  'Frequência Respiratória',
+  'Frequência Cardíaca',
   'Pressão',
   'Temperatura',
-  'Frequência Cardíaca',
   'Hidratação',
-  'Movimentação Corporal',
+  'Mudança de decúbito',
   'Alimentação',
   'Horários de medicação',
   'Troca de curativo',
   'Diurese',
   'Evacuação',
   'Saturação',
-  'Outra coisa',
+  'Outros cuidados',
 ] as const;
 
 export type PredefinedTask = typeof PREDEFINED_TASKS[number];
@@ -448,12 +448,9 @@ export async function recordTaskLog(
 ) {
   const day = new Date(date);
   day.setHours(0, 0, 0, 0);
-  return prisma.taskLog.upsert({
-    where: {
-      taskId_date: { taskId, date: day },
-    },
-    create: { taskId, date: day, status },
-    update: { status },
+  // Sempre criar um novo registro para contar quantas vezes aconteceu
+  return prisma.taskLog.create({
+    data: { taskId, date: day, status },
   });
 }
 
@@ -508,6 +505,97 @@ export async function getPatientWeeklyAdherence(patientId: string, days: number 
 
   const weeklyAdherencePercent = count > 0 ? Math.round(sum / count) : 0;
   return weeklyAdherencePercent;
+}
+
+export async function getPatientDetailedStats(
+  patientId: string, 
+  days: number
+): Promise<{
+  plan: any | null;
+  tasks: Array<{
+    id: string;
+    title: string;
+    time: string;
+    intervalHours: number | null;
+    stats: {
+      total: number;
+      done: number;
+      notDone: number;
+      refused: number;
+      adherence: number;
+    };
+  }>;
+  overallAdherence: number;
+  period: string;
+}> {
+  const plan = await prisma.plan.findFirst({
+    where: { patientId },
+    orderBy: { createdAt: 'desc' },
+    include: { tasks: true },
+  });
+
+  if (!plan) {
+    return {
+      plan: null,
+      tasks: [],
+      overallAdherence: 0,
+      period: days === 1 ? '24 horas' : `${days} dias`,
+    };
+  }
+
+  const taskIds = plan.tasks.map((t) => t.id);
+  const endDate = new Date();
+  endDate.setHours(23, 59, 59, 999);
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+  startDate.setHours(0, 0, 0, 0);
+
+  // Buscar todos os logs no período
+  const logs = await prisma.taskLog.findMany({
+    where: {
+      taskId: { in: taskIds },
+      date: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+  });
+
+  // Calcular estatísticas por tarefa
+  const tasksWithStats = plan.tasks.map((task) => {
+    const taskLogs = logs.filter((l) => l.taskId === task.id);
+    const total = taskLogs.length;
+    const done = taskLogs.filter((l) => l.status === 'DONE').length;
+    const notDone = taskLogs.filter((l) => l.status === 'NOT_DONE').length;
+    const refused = taskLogs.filter((l) => l.status === 'REFUSED').length;
+    const adherence = total > 0 ? Math.round((done / total) * 100) : 0;
+
+    return {
+      id: task.id,
+      title: task.title,
+      time: task.time,
+      intervalHours: task.intervalHours,
+      stats: {
+        total,
+        done,
+        notDone,
+        refused,
+        adherence,
+      },
+    };
+  });
+
+  // Calcular adesão geral
+  const totalLogs = logs.length;
+  const totalDone = logs.filter((l) => l.status === 'DONE').length;
+  const overallAdherence = totalLogs > 0 ? Math.round((totalDone / totalLogs) * 100) : 0;
+
+  return {
+    plan,
+    tasks: tasksWithStats,
+    overallAdherence,
+    period: days === 1 ? '24 horas' : `${days} dias`,
+  };
 }
 
 export async function getPlanById(planId: string) {

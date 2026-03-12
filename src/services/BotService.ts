@@ -194,8 +194,6 @@ async function handlePatientMessage(
   // Continua o cadastro mesmo se o profile já existir (ex.: após salvar idade)
   if (
     state?.state === 'REGISTER_NAME' ||
-    state?.state === 'REGISTER_AGE' ||
-    state?.state === 'REGISTER_CONDITION' ||
     !user.patientProfile
   ) {
     await continueRegistration(phone, text, state);
@@ -954,35 +952,33 @@ async function handleAdminMessage(
     }
 
     if (selectionMode === 'STATUS') {
-      // Ver status do paciente (mesma lógica que antes, mas usando seleção por lista)
-      const status = await PlanService.getPatientStatus(patient.id, new Date());
-      const weeklyAdherence = await PlanService.getPatientWeeklyAdherence(patient.id, 7);
-      setAdminState(phone, { state: 'MENU' });
-
-      if (!status.plan) {
-        await sendText(phone, 'Paciente sem plano cadastrado.');
-      } else {
-        const taskStatus = status.tasks.map((t) => {
-          const log = status.logs.find((l) => l.taskId === t.id);
-          const st = log
-            ? log.status === 'DONE'
-              ? 'FEZ'
-              : log.status === 'NOT_DONE'
-              ? 'NÃO FEZ'
-              : 'RECUSOU'
-            : '-';
-          
-          const timeDisplay = formatTaskTime(t);
-          return `${timeDisplay ? timeDisplay + ' - ' : ''}${t.title}: ${st}`;
-        });
-        await sendText(
-          phone,
-          `*Status - ${patient.name ?? patient.phone}*\n\n${taskStatus.join(
-            '\n'
-          )}\n\nAdesão ao plano hoje: ${status.adherencePercent}%\nAdesão nos últimos 7 dias: ${weeklyAdherence}%`
-        );
-      }
-      await sendAdminMenu(phone);
+      // Após selecionar paciente, perguntar período
+      setAdminState(phone, {
+        state: 'AWAIT_STATUS_PERIOD',
+        data: { 
+          patientId: patient.id,
+          patientPhone: patient.phone,
+          patientName: patient.name ?? undefined,
+        },
+      });
+      
+      const periodSections: ListSection[] = [
+        {
+          title: 'Período de análise',
+          rows: [
+            { id: 'period_24h', title: '📊 Últimas 24 horas', description: 'Estatísticas do último dia' },
+            { id: 'period_7d', title: '📈 Últimos 7 dias', description: 'Estatísticas da última semana' },
+          ],
+        },
+      ];
+      
+      await sendListMessage(
+        phone,
+        'Período de Análise',
+        `*Paciente selecionado: ${patient.name ?? patient.phone}*\n\nSelecione o período para visualizar as estatísticas:`,
+        'Ver opções',
+        periodSections
+      );
       return;
     }
 
@@ -1410,6 +1406,71 @@ async function handleAdminMessage(
     return;
   }
 
+  if (state.state === 'AWAIT_STATUS_PERIOD') {
+    if (isBackToMenu(text)) {
+      setAdminState(phone, { state: 'MENU' });
+      await sendAdminMenu(phone);
+      return;
+    }
+
+    const patientId = state.data?.patientId;
+    const patientName = state.data?.patientName;
+    const patientPhone = state.data?.patientPhone;
+
+    if (!patientId) {
+      await sendText(phone, 'Erro: paciente não encontrado.');
+      setAdminState(phone, { state: 'MENU' });
+      await sendAdminMenu(phone);
+      return;
+    }
+
+    let days = 7;
+    if (parsed?.isListReply && parsed.selectedId === 'period_24h') {
+      days = 1;
+    } else if (parsed?.isListReply && parsed.selectedId === 'period_7d') {
+      days = 7;
+    } else if (text.trim() === '1' || text.trim().toLowerCase().includes('24')) {
+      days = 1;
+    } else {
+      days = 7;
+    }
+
+    // Buscar estatísticas detalhadas
+    const stats = await PlanService.getPatientDetailedStats(patientId, days);
+
+    if (!stats.plan) {
+      await sendText(phone, 'Paciente sem plano cadastrado.');
+      setAdminState(phone, { state: 'MENU' });
+      await sendAdminMenu(phone);
+      return;
+    }
+
+    // Formatar mensagem moderna e completa
+    const timeDisplay = (task: { time: string; intervalHours: number | null }) => {
+      if (task.intervalHours) return `A cada ${task.intervalHours}h`;
+      if (task.time && task.time !== '00:00') return task.time;
+      return '';
+    };
+
+    const taskStatsLines = stats.tasks.map((task) => {
+      const timeStr = timeDisplay(task);
+      const timePrefix = timeStr ? `${timeStr} - ` : '';
+      const emoji = task.stats.adherence >= 80 ? '✅' : task.stats.adherence >= 50 ? '⚠️' : '❌';
+      
+      return `${emoji} *${timePrefix}${task.title}*\n   ├─ ✅ Realizado: ${task.stats.done}x\n   ├─ ❌ Não realizado: ${task.stats.notDone}x\n   ├─ 🚫 Recusado: ${task.stats.refused}x\n   └─ 📊 Adesão: ${task.stats.adherence}%`;
+    });
+
+    const totalRecords = stats.tasks.reduce((sum, t) => sum + t.stats.total, 0);
+    const overallEmoji = stats.overallAdherence >= 80 ? '🟢' : stats.overallAdherence >= 50 ? '🟡' : '🔴';
+
+    const message = `📊 *Relatório de Status do Paciente*\n\n👤 *Paciente:* ${patientName ?? patientPhone}\n📅 *Período:* ${stats.period}\n\n${'═'.repeat(30)}\n\n${taskStatsLines.join('\n\n')}\n\n${'═'.repeat(30)}\n\n${overallEmoji} *Adesão Geral:* ${stats.overallAdherence}%\n📈 *Total de registros:* ${totalRecords}`;
+
+    await sendText(phone, message);
+    setAdminState(phone, { state: 'MENU' });
+    await sendAdminMenu(phone);
+    return;
+  }
+
   if (state.state === 'AWAIT_OCCURRENCE_ACTION') {
     if (isBackToMenu(text)) {
       setAdminState(phone, { state: 'MENU' });
@@ -1471,32 +1532,33 @@ async function handleAdminMessage(
         return;
       }
       
-      const status = await PlanService.getPatientStatus(patient.id, new Date());
-      const weeklyAdherence = await PlanService.getPatientWeeklyAdherence(patient.id, 7);
+      // Usar o novo sistema de estatísticas detalhadas (7 dias por padrão)
+      const stats = await PlanService.getPatientDetailedStats(patient.id, 7);
       
-      if (!status.plan) {
+      if (!stats.plan) {
         await sendText(phone, 'Paciente sem plano cadastrado.');
       } else {
-        const taskStatus = status.tasks.map((t) => {
-          const log = status.logs.find((l) => l.taskId === t.id);
-          const st = log
-            ? log.status === 'DONE'
-              ? 'FEZ'
-              : log.status === 'NOT_DONE'
-              ? 'NÃO FEZ'
-              : 'RECUSOU'
-            : '-';
+        // Formatar mensagem moderna e completa
+        const timeDisplay = (task: { time: string; intervalHours: number | null }) => {
+          if (task.intervalHours) return `A cada ${task.intervalHours}h`;
+          if (task.time && task.time !== '00:00') return task.time;
+          return '';
+        };
+
+        const taskStatsLines = stats.tasks.map((task) => {
+          const timeStr = timeDisplay(task);
+          const timePrefix = timeStr ? `${timeStr} - ` : '';
+          const emoji = task.stats.adherence >= 80 ? '✅' : task.stats.adherence >= 50 ? '⚠️' : '❌';
           
-          const timeDisplay = formatTaskTime(t);
-          return `${timeDisplay ? timeDisplay + ' - ' : ''}${t.title}: ${st}`;
+          return `${emoji} *${timePrefix}${task.title}*\n   ├─ ✅ Realizado: ${task.stats.done}x\n   ├─ ❌ Não realizado: ${task.stats.notDone}x\n   ├─ 🚫 Recusado: ${task.stats.refused}x\n   └─ 📊 Adesão: ${task.stats.adherence}%`;
         });
-        
-        await sendText(
-          phone,
-          `*Status - ${patient.name ?? patient.phone}*\n\n${taskStatus.join(
-            '\n'
-          )}\n\nAdesão ao plano hoje: ${status.adherencePercent}%\nAdesão nos últimos 7 dias: ${weeklyAdherence}%`
-        );
+
+        const totalRecords = stats.tasks.reduce((sum, t) => sum + t.stats.total, 0);
+        const overallEmoji = stats.overallAdherence >= 80 ? '🟢' : stats.overallAdherence >= 50 ? '🟡' : '🔴';
+
+        const message = `📊 *Relatório de Status do Paciente*\n\n👤 *Paciente:* ${patient.name ?? patient.phone}\n📅 *Período:* ${stats.period}\n\n${'═'.repeat(30)}\n\n${taskStatsLines.join('\n\n')}\n\n${'═'.repeat(30)}\n\n${overallEmoji} *Adesão Geral:* ${stats.overallAdherence}%\n📈 *Total de registros:* ${totalRecords}`;
+
+        await sendText(phone, message);
       }
       
       // Voltar ao menu de ocorrência

@@ -30,7 +30,8 @@ export type AdminState =
   | 'AWAIT_OTHER_TASK_DETAILS'
   | 'AWAIT_OCCURRENCE_ACTION'
   | 'AWAIT_FAMILY_PATIENT_SELECTION'
-  | 'AWAIT_FAMILY_DETAILS';
+  | 'AWAIT_FAMILY_DETAILS'
+  | 'AWAIT_STATUS_PERIOD';
 
 export interface BotStateData {
   taskId?: string;
@@ -46,6 +47,7 @@ export interface BotStateData {
   occurrencePatientId?: string;
   occurrencePatientPhone?: string;
   patientId?: string;
+  patientName?: string;
 }
 
 export interface ConversationState {
